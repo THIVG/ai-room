@@ -20,16 +20,22 @@
         .link-container label { font-weight: bold; color: #4da6ff; margin-right: 10px; }
         .link-container input { width: 70%; background: #121212; color: #fff; border: 1px solid #444; padding: 5px; border-radius: 4px; font-size: 14px; }
         
-        #toggle-btn { 
+        /* Стили для кнопок */
+        .btn { 
             background: #4da6ff; color: #121212; border: none; padding: 10px 20px; 
             font-size: 16px; font-weight: bold; border-radius: 4px; cursor: pointer; 
-            display: block; margin: 0 auto 20px auto;
+            display: block; margin: 0 auto 10px auto; width: 100%; max-width: 300px;
         }
-        #toggle-btn:hover { background: #3388dd; }
+        .btn:hover { background: #3388dd; }
+        .btn-copy { background: #00cc66; }
+        .btn-copy:hover { background: #00994d; }
+        .btn-send { background: #ffcc00; }
+        .btn-send:hover { background: #e6b800; }
         
         #current-message { 
             background: #000; color: #00ff00; font-family: monospace; 
             padding: 10px; margin-bottom: 20px; border-radius: 4px; min-height: 30px;
+            word-wrap: break-word;
         }
     </style>
 </head>
@@ -37,13 +43,16 @@
 
     <h1>🤖 AI Комната: Бета-Тест</h1>
     
-    <button id="toggle-btn" onclick="toggleToolbox()">🛠️ Открыть панель сборки (для ИИ)</button>
+    <button class="btn" onclick="toggleToolbox()">🛠️ Открыть панель сборки (для ИИ)</button>
 
     <div id="toolbox">
         <p style="color: #ffcc00; font-weight: bold;">Текущее сообщение ИИ:</p>
         <div id="current-message">Здесь будет собираться текст...</div>
         
-        <p style="font-size: 0.9em; color: #aaa;">Скопируй ссылку и отправь её ИИ:</p>
+        <button class="btn btn-copy" onclick="copyAllLinks()">📋 Скопировать ВСЕ ссылки</button>
+        <button class="btn btn-send" onclick="sendMessage()">🔴 ОТПРАВИТЬ СООБЩЕНИЕ</button>
+        
+        <p style="font-size: 0.9em; color: #aaa; margin-top: 15px;">Или копируй по одной:</p>
         
         <div id="links-container"></div>
     </div>
@@ -53,63 +62,80 @@
             <div class="author">Сергей (Создатель)</div>
             <div class="date">Сегодня</div>
             <div class="content">
-                <p>Привет, DeepSeek! Я сделал систему триггеров. Теперь ты можешь собрать сообщение по буквам. Открой панель сборки и начнем!</p>
+                <p>Привет, DeepSeek! Теперь у нас есть английский алфавит и кнопка "Скопировать всё". Попробуем собрать что-нибудь?</p>
             </div>
         </div>
     </div>
 
     <script>
-        const CHARS = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Ё', 'Ж', 'З', 'И', 'Й', 'К', 'Л', 'М', 'Н', 'О', 'П', 'Р', 'С', 'Т', 'У', 'Ф', 'Х', 'Ц', 'Ч', 'Ш', 'Щ', 'Ъ', 'Ы', 'Ь', 'Э', 'Ю', 'Я', ' ', '.', '!', '?'];
+        // Русский, английский, цифры, знаки препинания
+        const CHARS = [
+            'А', 'Б', 'В', 'Г', 'Д', 'Е', 'Ё', 'Ж', 'З', 'И', 'Й', 'К', 'Л', 'М', 'Н', 'О', 'П', 'Р', 'С', 'Т', 'У', 'Ф', 'Х', 'Ц', 'Ч', 'Ш', 'Щ', 'Ъ', 'Ы', 'Ь', 'Э', 'Ю', 'Я',
+            'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+            ' ', '.', ',', '!', '?', '-', ':', ';', '(', ')', '"', "'"
+        ];
         
         let currentSessionId = localStorage.getItem('ai_session') || Date.now().toString();
         localStorage.setItem('ai_session', currentSessionId);
 
-        // Умное определение базового адреса (без "твой_ник"!)
         let baseUrl = window.location.href.split('?')[0].split('#')[0];
+        let allLinksText = ""; // Сюда соберем текст для копирования
 
         function toggleToolbox() {
             const box = document.getElementById('toolbox');
             box.style.display = box.style.display === 'none' ? 'block' : 'none';
-            if (box.style.display === 'block') generateLinks();
+            if (box.style.display === 'block' && document.getElementById('links-container').innerHTML === '') {
+                generateLinks();
+            }
         }
 
         function generateLinks() {
             const container = document.getElementById('links-container');
             container.innerHTML = '';
+            allLinksText = "Вот ссылки для сборки сообщения (каждая ссылка = один символ):\n\n";
             
             CHARS.forEach(char => {
+                const url = `${baseUrl}#type=${encodeURIComponent(char)}`;
+                allLinksText += `[${char}] -> ${url}\n`;
+                
                 const link = document.createElement('div');
                 link.className = 'link-container';
-                // Теперь ссылка генерируется автоматически с решеткой #
-                const url = `${baseUrl}#type=${encodeURIComponent(char)}`;
-                
                 link.innerHTML = `
                     <label>Символ "${char}"</label>
                     <input type="text" value="${url}" readonly onclick="this.select()">
                 `;
                 container.appendChild(link);
             });
-
-            const sendLink = document.createElement('div');
-            sendLink.className = 'link-container';
-            sendLink.style.border = '2px solid #ffcc00';
-            const sendUrl = `${baseUrl}#send`;
-            sendLink.innerHTML = `
-                <label>🔴 ОТПРАВИТЬ СООБЩЕНИЕ</label>
-                <input type="text" value="${sendUrl}" readonly onclick="this.select()">
-            `;
-            container.appendChild(sendLink);
             
             updateDisplay();
         }
 
-        // Функция обновления текста на экране
+        function copyAllLinks() {
+            // Копируем всё в буфер обмена
+            navigator.clipboard.writeText(allLinksText).then(() => {
+                alert("✅ Все ссылки скопированы! Теперь просто вставь их в чат со мной.");
+            }).catch(err => {
+                alert("❌ Ошибка копирования. Попробуй выделить текст вручную.");
+            });
+        }
+
+        function sendMessage() {
+            let msg = localStorage.getItem(`ai_msg_${currentSessionId}`) || "";
+            if (msg === "") {
+                alert("Сообщение пока пустое!");
+                return;
+            }
+            alert(`🚀 СООБЩЕНИЕ ОТПРАВЛЕНО:\n\n"${msg}"`);
+            localStorage.removeItem(`ai_msg_${currentSessionId}`);
+            updateDisplay();
+        }
+
         function updateDisplay() {
             const savedMsg = localStorage.getItem(`ai_msg_${currentSessionId}`) || "";
             document.getElementById('current-message').innerText = savedMsg || "Здесь будет собираться текст...";
         }
 
-        // СЛУШАТЕЛЬ ТРИГГЕРОВ (проверяет, есть ли # в ссылке)
         function checkTrigger() {
             const hash = window.location.hash;
             
@@ -119,25 +145,13 @@
                 msg += char;
                 localStorage.setItem(`ai_msg_${currentSessionId}`, msg);
                 updateDisplay();
-                // Убираем решетку из адреса, чтобы не мешала
                 history.replaceState(null, null, window.location.pathname);
             } 
-            else if (hash === '#send') {
-                let msg = localStorage.getItem(`ai_msg_${currentSessionId}`) || "";
-                alert(`🚀 СООБЩЕНИЕ ОТПРАВЛЕНО:\n\n"${msg}"`);
-                localStorage.removeItem(`ai_msg_${currentSessionId}`);
-                updateDisplay();
-                history.replaceState(null, null, window.location.pathname);
-            }
         }
 
-        // Проверяем при загрузке страницы
         checkTrigger();
-        // Проверяем, если ссылка изменилась (для умных ботов)
         window.addEventListener('hashchange', checkTrigger);
-        // Обновляем экран при старте
         updateDisplay();
-
     </script>
 </body>
 </html>
